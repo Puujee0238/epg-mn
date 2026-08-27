@@ -2,8 +2,8 @@ name: Update Weekly EPG
 
 on:
   schedule:
-    # Sunday 22:00 GMT+8 == Sunday 14:00 UTC
-    - cron: "0 14 * * 0"
+    # Thursday 15:00 GMT+8 == Thursday 07:00 UTC
+    - cron: "0 7 * * 4"
   workflow_dispatch: {}
 
 permissions:
@@ -12,6 +12,7 @@ permissions:
 jobs:
   update-epg:
     runs-on: ubuntu-latest
+    environment: main
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,7 +25,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Find working Mongolia proxies
+        if: ${{ vars.USE_PROXY != 'false' }}
+        run: python proxy_finder.py
+
       - name: Run EPG scraper
+        env:
+          USE_PROXY: ${{ vars.USE_PROXY != 'false' }}
         run: python epg.py
 
       - name: Commit and push updated EPG
@@ -39,16 +46,16 @@ jobs:
             git push
           fi
 
-      - name: Update secret Gist
-        if: ${{ vars.GIST_ID != '' }}
-        env:
-          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-          GIST_ID: ${{ vars.GIST_ID }}
-        run: |
-          payload=$(jq -n --rawfile content weekly_epg_updated.xml \
-            '{files: {"weekly_epg_updated.xml": {content: $content}}}')
-          curl -sf -X PATCH \
-            -H "Authorization: token ${GIST_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/gists/${GIST_ID}" \
-            -d "${payload}"
+      # - name: Update secret Gist
+      #   if: ${{ vars.GIST_ID != '' }}
+      #   env:
+      #     GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+      #     GIST_ID: ${{ vars.GIST_ID }}
+      #   run: |
+      #     jq -n --rawfile content weekly_epg_updated.xml \
+      #       '{files: {"weekly_epg_updated.xml": {content: $content}}}' > /tmp/gist_payload.json
+      #     curl -sf -X PATCH \
+      #       -H "Authorization: token ${GIST_TOKEN}" \
+      #       -H "Accept: application/vnd.github+json" \
+      #       "https://api.github.com/gists/${GIST_ID}" \
+      #       --data-binary @/tmp/gist_payload.json
