@@ -1,0 +1,54 @@
+name: Update Weekly EPG
+
+on:
+  schedule:
+    # Sunday 22:00 GMT+8 == Sunday 14:00 UTC
+    - cron: "0 14 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-epg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run EPG scraper
+        run: python epg.py
+
+      - name: Commit and push updated EPG
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- weekly_epg_updated.xml; then
+            echo "No changes to weekly_epg_updated.xml, skipping commit."
+          else
+            git add weekly_epg_updated.xml
+            git commit -m "chore: weekly EPG update ($(date -u +'%Y-%m-%d'))"
+            git push
+          fi
+
+      - name: Update secret Gist
+        if: ${{ vars.GIST_ID != '' }}
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ vars.GIST_ID }}
+        run: |
+          payload=$(jq -n --rawfile content weekly_epg_updated.xml \
+            '{files: {"weekly_epg_updated.xml": {content: $content}}}')
+          curl -sf -X PATCH \
+            -H "Authorization: token ${GIST_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/gists/${GIST_ID}" \
+            -d "${payload}"
