@@ -5,6 +5,7 @@ on:
     # Thursday 15:00 GMT+8 == Thursday 07:00 UTC
     # - cron: "0 7 * * 4"
     - cron: "0 14 * * 0" # Sunday 22:00 GMT+8 == Sunday 14:00 UTC
+    - cron: "0 0 * * 1" # Monday 08:00 GMT+8 == Monday 00:00 UTC
   workflow_dispatch: {}
 
 permissions:
